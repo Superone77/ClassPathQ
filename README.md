@@ -1,4 +1,4 @@
-# ClassPathQ: A Neural Network Quantization based on Class Difficulty
+# ClassPathQ: A Neural Network Quantization based on Classification Difficulty
 
 ## Abstract
 In recent years, the increasing complexity and size of neural network models have led to significant challenges in computational demands, storage, and deployment, especially in resource-constrained environments. This thesis proposes a novel quantization strategy for neural networks, termed class-path-based quantization, which considers the classification difficulty of specific classes to optimize the allocation of bit-widths in quantized models. By identifying and prioritizing critical paths—sets of neurons and filters crucial for class-specific outputs—the proposed method allocates higher precision to more influential paths, maintaining model accuracy while reducing computational overhead.
