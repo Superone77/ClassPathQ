@@ -1,0 +1,76 @@
+{
+    "network_config": {
+        "prefix": "",
+        "network": "vggsmall_c100",
+        "device": "cuda:2"
+    },
+    "dataset_config": {
+        "dataset": "CIFAR100",
+        "batch_size": 100,
+        "class_num": 100
+    },
+    "training_config": {
+        "epoch": 400,
+        "learning_rate": 0.02,
+        "momentum": 0.9,
+        "weight_decay": 0.0005
+    },
+    "refine_config": {
+        "epoch": 400,
+        "learning_rate": 0.02,
+        "momentum": 0.9,
+        "weight_decay": 0.0005,
+        "KD_name": "vggsmall_c100_ref",
+        "KD_path": "./pre_trained/vggsmall_c100_ref.ckpt",
+        "KD_loss_alpha": 0.3
+    },
+    "quant_config": {
+        "classpath_flag":true,
+        "score_border_list": [
+            1.5,
+            2.0,
+            3.0,
+            5.0,
+            0
+        ],
+        "score_bit_list": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+        ],
+        "uniform_bit": 8,
+        "search_border_list": [
+            15,
+            19,
+            20,
+            21
+        ],
+        "search_bit_list": [
+            0,
+            1,
+            2,
+            3,
+            4
+        ],
+        "step_length": 1,
+        "step_epoch": 10,
+        "protect_counter": 1,
+        "search_target": 12.0,
+        "search_target_q": 2.04,
+        "pruning_decay": 2.5,
+        "act_quant": true,
+        "act_bit": 2,
+        "T1": 0.94,
+        "R": 0.964,
+        "sparsity":0.7,
+        "shared_threshold_cross_cls":false,
+        "score_type_for_path":"interference_degree",
+        "greedy_reverse_flag": true,
+        "cls_bit_init_type": "NBit",
+        "advise_sorted_cls_bit": [1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 3],
+        "loc_for_unimportance" : 50
+    }
+}

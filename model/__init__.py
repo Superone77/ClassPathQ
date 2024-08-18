@@ -1,0 +1,3 @@
+from .resnet20 import get_model_resnet20_c10,get_model_resnet20_c100
+from .vggsmall import get_model_vggsmall_c10, get_model_vggsmall_c100
+

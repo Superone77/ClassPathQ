@@ -1,0 +1,43 @@
+{
+    "network_config": {
+        "prefix": "",
+        "network": "resnet20_c100",
+        "device": "cuda:0"
+    },
+    "dataset_config": {
+        "dataset": "CIFAR100",
+        "batch_size": 100,
+        "class_num": 100
+    },
+    "training_config": {
+        "epoch": 400,
+        "learning_rate": 0.1,
+        "momentum": 0.9,
+        "weight_decay": 0.0001
+    },
+    "refine_config": {
+        "epoch": 400,
+        "learning_rate": 0.1,
+        "momentum": 0.9,
+        "weight_decay": 0.0001,
+        "KD_name": "resnet20_c100_ref",
+        "KD_path": "./pre_trained/resnet20_c100_ref.ckpt",
+        "KD_loss_alpha": 0.3
+    },
+    "quant_config": {
+        "classpath_flag":true,
+        "uniform_bit": 8,
+        "search_target_q": 2.06,
+        "act_quant": true,
+        "act_bit": 2,
+        "T1": 0.94,
+        "R": 0.964,
+        "sparsity":0.9,
+        "shared_threshold_cross_cls":false,
+        "score_type_for_path":"jaccard_similarity",
+        "greedy_reverse_flag": true,
+        "cls_bit_init_type": "NBit",
+        "advise_sorted_cls_bit": [1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 3],
+        "loc_for_unimportance" : 50
+    }
+}
