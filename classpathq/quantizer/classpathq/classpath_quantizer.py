@@ -67,36 +67,20 @@ class ClassPathQuantizer(object):
         self.KD_loss_alpha = config_dict['refine_config']['KD_loss_alpha']
         # quant_config
         self.classpath_flag = config_dict['quant_config']['classpath_flag']
-        if self.classpath_flag == False:
-            self.score_border_list = config_dict['quant_config']['score_border_list']
-            self.score_bit_list = config_dict['quant_config']['score_bit_list']
-            self.uniform_bit = config_dict['quant_config']['uniform_bit']
-            self.search_border_list = config_dict['quant_config']['search_border_list']
-            self.search_bit_list = config_dict['quant_config']['search_bit_list']
-            self.step_length = config_dict['quant_config']['step_length']
-            self.step_epoch = config_dict['quant_config']['step_epoch']
-            self.protect_counter = config_dict['quant_config']['protect_counter']
-            self.search_target = config_dict['quant_config']['search_target']
-            self.pruning_decay = config_dict['quant_config']['pruning_decay']
-            self.search_target_q = config_dict['quant_config']['search_target_q']
-            self.act_quant = config_dict['quant_config']['act_quant']
-            self.act_bit = config_dict['quant_config']['act_bit']
-        else:
-
-            self.uniform_bit = config_dict['quant_config']['uniform_bit']
-            self.search_target_q = config_dict['quant_config']['search_target_q']
-            self.act_quant = config_dict['quant_config']['act_quant']
-            self.act_bit = config_dict['quant_config']['act_bit']
-            self.T1 = config_dict['quant_config']['T1']
-            self.R = config_dict['quant_config']['R']
-            self.sparsity = config_dict['quant_config']['sparsity']
-            self.shared_threshold_cross_cls = config_dict['quant_config']['shared_threshold_cross_cls']
-            self.score_type_for_path = config_dict['quant_config']['score_type_for_path']
-            self.greedy_reverse_flag = config_dict['quant_config']['greedy_reverse_flag']
-            self.cls_bit_init_type = config_dict['quant_config']['cls_bit_init_type']
-            self.advise_sorted_cls_bit = config_dict['quant_config']['advise_sorted_cls_bit']
-            self.loc_for_unimportance = config_dict['quant_config']['loc_for_unimportance']
-            self.pruning_flag = config_dict['quant_config']['pruning_flag']
+        self.uniform_bit = config_dict['quant_config']['uniform_bit']
+        self.search_target_q = config_dict['quant_config']['search_target_q']
+        self.act_quant = config_dict['quant_config']['act_quant']
+        self.act_bit = config_dict['quant_config']['act_bit']
+        self.T1 = config_dict['quant_config']['T1']
+        self.R = config_dict['quant_config']['R']
+        self.sparsity = config_dict['quant_config']['sparsity']
+        self.shared_threshold_cross_cls = config_dict['quant_config']['shared_threshold_cross_cls']
+        self.score_type_for_path = config_dict['quant_config']['score_type_for_path']
+        self.greedy_reverse_flag = config_dict['quant_config']['greedy_reverse_flag']
+        self.cls_bit_init_type = config_dict['quant_config']['cls_bit_init_type']
+        self.advise_sorted_cls_bit = config_dict['quant_config']['advise_sorted_cls_bit']
+        self.loc_for_unimportance = config_dict['quant_config']['loc_for_unimportance']
+        self.pruning_flag = config_dict['quant_config']['pruning_flag']
 
         self.total_epoch = self.training_epoch + self.refine_epoch
 
@@ -108,74 +92,58 @@ class ClassPathQuantizer(object):
 
         # torch.save(self.model.state_dict(), "pre_trained/resnet20x2_ori_model.ckpt")
         # print(total_scores)
+        print("Score for Neuron Start")
+        scorer = Scorer(self.model, self.class_num, self.device)
+        total_score, class_scores = scorer.get_neuron_score_for_path(self.stat_loader, 10 ** (-50))
+        print("Path Generation Start")
+        sparsity_list = [0.3, 0.5, 0.6, 0.9]
+        loc_for_unimportance_list = [int(self.class_num/2),
+                                        int(self.class_num/2),
+                                        int(self.class_num/2),
+                                        self.class_num]
+        max_cls_bits = []
+        max_current_mean_bit_width = -1
+        max_bit_list_all = []
+        for i in range(len(sparsity_list)):
+            sparsity = sparsity_list[i]
+            loc_for_unimportance = loc_for_unimportance_list[i]
+            path_generator = PathGenerator(self.model, total_score, class_scores, self.device, self.netname)
+            critical_pathways, important_neuron_locations, sorted_classes = path_generator.gen_critical_pathway(
+                class_scores, self.class_num, sparsity, self.shared_threshold_cross_cls,
+                self.score_type_for_path,
+                loc_for_unimportance)
 
-        if self.classpath_flag == True:  # score to bit
-            print("Score for Neuron Start")
-            scorer = Scorer(self.model, self.class_num, self.device)
-            total_score, class_scores = scorer.get_neuron_score_for_path(self.stat_loader, 10 ** (-50))
-            print("Path Generation Start")
-            sparsity_list = [0.3, 0.5, 0.6, 0.9]
-            loc_for_unimportance_list = [int(self.class_num/2),
-                                         int(self.class_num/2),
-                                         int(self.class_num/2),
-                                         self.class_num]
-            max_cls_bits = []
-            max_current_mean_bit_width = -1
-            max_bit_list_all = []
-            for i in range(len(sparsity_list)):
-                sparsity = sparsity_list[i]
-                loc_for_unimportance = loc_for_unimportance_list[i]
-                path_generator = PathGenerator(self.model, total_score, class_scores, self.device, self.netname)
-                critical_pathways, important_neuron_locations, sorted_classes = path_generator.gen_critical_pathway(
-                    class_scores, self.class_num, sparsity, self.shared_threshold_cross_cls,
-                    self.score_type_for_path,
-                    loc_for_unimportance)
-
-                if self.act_quant:
-                    self.model.set_quant(True, True)
-                else:
-                    self.model.set_quant(True)
-                bit_giver = BitGiver(self.model, self.search_target_q, self.act_bit, self.testloader, self.device,
-                                     self.base_criterion, self.netname)
-                print("Bit Search Start")
-                bits_list_all = bit_giver.bit_init()
-
-                self.model.set_bits_list(bits_list_all, self.act_bit)
-
-                cls_bits, current_mean_bit_width, bit_list_all = bit_giver.bit_search(important_neuron_locations,
-                                                                                      sorted_classes, bits_list_all,
-                                                                                      self.T1,
-                                                                                      self.R,
-                                                                                      self.greedy_reverse_flag,
-                                                                                      self.cls_bit_init_type,
-                                                                                      self.advise_sorted_cls_bit,
-                                                                                      self.pruning_flag)
-                print("sparsity:",sparsity,",loc_for_unimportance:",loc_for_unimportance,',current_mean_bit_width:',current_mean_bit_width)
-                if current_mean_bit_width > max_current_mean_bit_width:
-                    max_current_mean_bit_width = current_mean_bit_width
-                    max_cls_bits = copy.deepcopy(cls_bits)
-                    max_bit_list_all = copy.deepcopy(bit_list_all)
-
-            print("result of bit search:")
-            print(max_current_mean_bit_width)
-            print(max_cls_bits)
-            print(max_bit_list_all)
-
-
-        else:
-            scorer = Scorer(self.model, self.class_num, self.device)
-            total_scores = scorer.get_neuron_score(self.stat_loader, 10 ** (-50))
-            print(self.score_border_list)
             if self.act_quant:
                 self.model.set_quant(True, True)
             else:
                 self.model.set_quant(True)
-            bit_list_all = self.gen_bit_list(total_scores, self.score_border_list, self.score_bit_list,
-                                             method='piecewise')
-            # print(bit_list_all)
-            self.model.set_bits_list(bit_list_all, self.act_bit)
+            bit_giver = BitGiver(self.model, self.search_target_q, self.act_bit, self.testloader, self.device,
+                                    self.base_criterion, self.netname)
+            print("Bit Search Start")
+            bits_list_all = bit_giver.bit_init()
 
-            max_bit_list_all = self.score_to_bit_search(total_scores, self.search_target)
+            self.model.set_bits_list(bits_list_all, self.act_bit)
+
+            cls_bits, current_mean_bit_width, bit_list_all = bit_giver.bit_search(important_neuron_locations,
+                                                                                    sorted_classes, bits_list_all,
+                                                                                    self.T1,
+                                                                                    self.R,
+                                                                                    self.greedy_reverse_flag,
+                                                                                    self.cls_bit_init_type,
+                                                                                    self.advise_sorted_cls_bit,
+                                                                                    self.pruning_flag)
+            print("sparsity:",sparsity,",loc_for_unimportance:",loc_for_unimportance,',current_mean_bit_width:',current_mean_bit_width)
+            if current_mean_bit_width > max_current_mean_bit_width:
+                max_current_mean_bit_width = current_mean_bit_width
+                max_cls_bits = copy.deepcopy(cls_bits)
+                max_bit_list_all = copy.deepcopy(bit_list_all)
+
+        print("result of bit search:")
+        print(max_current_mean_bit_width)
+        print(max_cls_bits)
+        print(max_bit_list_all)
+
+
 
         aver_weight = self.model.get_average_weight()
         print(aver_weight)
@@ -196,101 +164,3 @@ class ClassPathQuantizer(object):
             acc = self.train_KD(epoch, self.trainloader, self.optimizer_refine, self.base_criterion)
             self.scheduler_refine.step()
         return acc, epoch
-
-    # target: target of reference accuracy
-    def score_to_bit_search(self, total_scores, target):
-        bit_current = 1
-        counter = 0
-        acc, loss = self.test(self.valloader)
-        print(acc, loss)
-        while bit_current <= len(self.search_border_list):
-            if bit_current > 1 and self.search_border_list[bit_current - 2] > self.search_border_list[bit_current - 1]:
-                self.search_border_list[bit_current - 1] = self.search_border_list[bit_current - 2]
-            bit_list_all = self.gen_bit_list(total_scores, self.search_border_list, self.search_bit_list,
-                                             method='piecewise')
-            # print(bit_list_all)
-            for l in bit_list_all:
-                print(len(l), end=' ')
-            print('\n')
-            if self.act_quant:
-                self.model.set_quant(True, True)
-            else:
-                self.model.set_quant(True)
-            self.model.set_bits_list(bit_list_all)
-
-            acc, loss = self.test(self.trainloader)
-
-            weight_num_quant = self.model.get_average_weight()
-            if bit_current <= 1:
-                org_target = target
-                target = self.pruning_decay * target * (0.8 ** (bit_current - 1))
-                if acc < target or weight_num_quant < self.search_target_q:
-                    self.search_border_list[bit_current - 1] -= self.step_length
-                    bit_current += 1
-                    target = org_target
-                    continue
-            else:
-                if weight_num_quant < self.search_target_q:
-                    self.search_border_list[bit_current - 1] -= self.step_length
-                    bit_current += 1
-                    target = org_target
-                    continue
-            target = org_target
-
-            self.search_border_list[bit_current - 1] += self.step_length
-            if self.search_border_list[bit_current - 1] >= self.class_num:
-                self.search_border_list[bit_current - 1] = self.class_num
-                bit_current += 1
-            # print(self.search_border_list)
-            # print(self.model.get_average_weight())
-            print('--------------------------------')
-            counter += 1
-        return bit_list_all
-
-    def gen_bit_list(self, scores, score_border_list, score_bit_list, method='uniform', uniform_bits=8):
-        bit_list_total = []
-        for index, layer in enumerate(scores):
-            if len(layer.shape) == 2:
-                bit_list_total.append(
-                    self._score_to_bit(layer[0], score_border_list, score_bit_list, method, uniform_bits))
-            elif len(layer.shape) == 4:
-                list_tmp = []
-                for i in range(layer.shape[1]):
-                    list_tmp.append(layer[:, i, :, :].max())
-                if index == 0:
-                    bit_list_total.append(
-                        self._score_to_bit(list_tmp, score_border_list, score_bit_list, 'uniform', uniform_bits))
-                else:
-                    bit_list_total.append(
-                        self._score_to_bit(list_tmp, score_border_list, score_bit_list, method, uniform_bits))
-            else:
-                raise ValueError("Wrong shape of scores")
-        return bit_list_total
-
-    def _score_to_bit(self, scores, score_border_list, score_bit_list, method='uniform', uniform_bits=8):
-        bit_list = []
-        if method == 'piecewise':
-            for index, element in enumerate(scores):
-                append_constraint = False
-                for i, e in enumerate(score_border_list):
-                    if element <= e:
-                        bit_list.append(score_bit_list[i])
-                        append_constraint = True
-                        break
-                if element > score_border_list[-1] and not append_constraint:
-                    bit_list.append(score_bit_list[-1])
-        elif method == 'uniform':
-            for element in scores:
-                bit_list.append(uniform_bits)
-
-        return bit_list
-
-    def _finetune_KD(self, start_epoch, end_epoch):
-        kd_trainer = KD_trainer(self.model, self.device, self.trainloader, self.valloader, self.testloader, self.stat_loader, self.base_criterion,
-                 self.instance_name, self.config_dict)
-        for epoch in range(start_epoch, end_epoch):
-            acc = kd_trainer.train(epoch, self.trainloader, self.optimizer_refine, self.base_criterion)
-            self.scheduler_refine.step()
-        return acc, epoch
-    
-    

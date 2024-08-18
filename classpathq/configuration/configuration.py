@@ -3,7 +3,7 @@ from socket import gethostname
 import json
 from ..model import *
 
-class config_json:
+class ConfigJson:
     def __init__(self, config_dict_dir):
         with open(config_dict_dir, 'r') as f:
             self.config_dict = json.load(f)

@@ -88,6 +88,92 @@ class TaylorScorer:
 
         return first_order_taylor_scores
 
+class SensitivityScorer:
+    def __init__(self, model, input, device, label=None, output_orig=None):
+        self.model = model
+        self.input = input
+        self.model.eval()
+        self.device = device
+        self.gradients = []
+        self.neurons = []
+        if label and output_orig is not None:
+            self.label = label
+            self.output_orig = output_orig
+        else:
+            self.output_orig = self.model(input).detach()
+            self.label = self.output_orig.data.max(1)[1].item()
+        self.handles_list = []
+        self._hook_layers()
+
+    def _hook_layers(self):
+        def backward_hook_relu(module, grad_input, grad_output):
+            self.gradients.append(grad_output[0].to(self.device))
+
+        def forward_hook_relu(module, input, output):
+            self.neurons.append(output.to(self.device))
+            return output
+
+        for i, module in enumerate(self.model.modules()):
+            if isinstance(module, nn.ReLU):
+                self.handles_list.append(module.register_forward_hook(forward_hook_relu))
+                self.handles_list.append(module.register_full_backward_hook(backward_hook_relu))
+
+    def remove_handles(self):
+        for handle in self.handles_list:
+            handle.remove()
+        self.handles_list.clear()
+        self.neurons = []
+        self.gradients = []
+
+    def _forward(self, input):
+        self.neurons = []
+        self.gradients = []
+        self.model.zero_grad()
+        output = self.model(input)
+        return output
+
+    def _number_of_elements(self):
+        total = 0
+        for layer in self.neurons:
+            num_neurons_in_layer = layer.numel()
+            total += num_neurons_in_layer
+        return total
+
+    def _compute_sensitivity_scores(self):
+        first_order_taylor_scores = []
+        self.gradients.reverse()
+        for i, layer in enumerate(self.neurons):
+            first_order_taylor_scores.append(torch.abs(torch.mul(layer, self.gradients[i])))
+
+        return first_order_taylor_scores
+
+    def get_scores(self, target=None, debug=False):
+        initial_output = self._forward(self.input)
+        initial_output = torch.nn.functional.softmax(initial_output, dim=1)
+        initial_predicted_logit = initial_output.data.max(1)[0].item()
+        initial_predicted_class = initial_output.data.max(1)[1].item()
+        if debug:
+            print("Initial output = {}".format(initial_predicted_logit))
+            print('Initial predicted class {}: '.format(initial_predicted_class))
+        label = torch \
+            .tensor([self.label]).to(self.device)
+        criterion = torch.nn.CrossEntropyLoss()
+        initial_loss = criterion(initial_output, label)
+
+        num_total = self._number_of_elements()
+        if debug:
+            print('initial loss {}'.format(initial_loss))
+            print("total number of neurons: {}".format(num_total))
+
+        if target == None:
+            target = self.label
+
+        output = self._forward(self.input)
+        output[0, target].backward(retain_graph=True)
+        first_order_taylor_scores = self._compute_taylor_scores()
+
+        return first_order_taylor_scores
+
 
 class Scorer:
     def __init__(self, model, class_num, device):
@@ -103,7 +189,10 @@ class Scorer:
             scorer.remove_handles()
             return scorse
         elif score_type == 'SS':
-            pass
+            model.eval()
+            scorer = SensitivityScorer(model, data, device)
+            scorse = scorer.get_scores(target=target)
+            scorer.remove_handles()
         else:
             raise Exception('No such score type')
 

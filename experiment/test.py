@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from ..classpathq.configration import config_json
+from ..classpathq.configration import ConfigJson
 from ..classpathq.dataloader import prepare_datasets
 from ..classpathq.quantizer import ClassPathQuantizer
 
@@ -24,7 +24,7 @@ def main(argv):
     setup_seed(seed)
     print(seed)
     config_dir = './configs/resnet20_c10_1_a2w2.json'
-    config = config_json(config_dir)
+    config = ConfigJsons(config_dir)
     torch.cuda.set_device(config.device)
     device = torch.device(config.device)
     trainloader, valloader, testloader = prepare_datasets(config.dataset, config.batch_size)
