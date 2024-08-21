@@ -7,5 +7,14 @@ The approach involves scoring the importance of each neuron and filter for indiv
 
 Experimental results demonstrate that class-path-based quantization outperforms traditional methods, particularly in complex classification tasks. This approach allows for effective model compression and acceleration, making advanced neural network models more accessible and efficient across various hardware platforms.
 
+## A Scalable Quantization Framework
+To explore the relationship between class scoring, class paths, and quantization through extensive experimentation, we developed a reusable and scalable per-channel quantization framework. This framework abstracts the processes of scoring, path extraction, quantization, and other configurations into independent, loosely coupled components. Consequently, it allows flexible adjustment of each component via scripts, enabling the generation of a vast array of experimental results.
 
+As a modular quantization framework, it empowers developers to customize various aspects of neural network quantization. The key features include:
+
+* Construction of models using the PyTorch library with model-level quantization metrics.
+* Integration of operators specifically designed for network quantization, with defined operator-level quantization metrics.
+* Development of custom trainers that seamlessly integrate training and fine-tuning into the model workflow.
+* A unified configuration interface for network quantization and a consistent trainer interface for both operators and models, simplifying the definition and integration of quantizers.
+* Support for per-channel quantization across all currently implemented operators.
 
